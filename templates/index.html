@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+
+{% block headcontent %}
+  <script src="https://rawgit.com/kimmobrunfeldt/progressbar.js/1.0.0/dist/progressbar.js"></script>
+{% endblock %}
+
+{% block content %}
+{% if user.is_authenticated %}
+
+  <div>
+    <div class="container">
+      <div class="row my-2">
+        <div class="col-auto">
+        <a href="https://github.com/balloonio/2do1ist">
+        <img src="/static/media/logo-slim.svg" height="52" width="80" alt="2do1ist logo">
+        </a>
+        </div>
+        <div class="col"></div>
+        <div class="col-auto">                    
+          <form action="{% url 'logout' %}">
+            <button type="submit" class="btn btn-secondary my-2">Logout</button>
+          </form>
+        </div> 
+      </div>
+    </div>
+
+    <input type="text" name="todoname-ajax" class="form-control my-2" placeholder="Add a todo and hit Enter" aria-label="a todo task" aria-describedby="basic-addon1">
+                  
+    <div id="pbar"></div>
+ 
+    <script>
+      var data = {
+        green_to: {{green_to}},
+        green_from: {{green_from}},
+      };
+      // progressbar.js@1.0.0 version is used
+      // Docs: http://progressbarjs.readthedocs.org/en/1.0.0/
+
+      var bar = new ProgressBar.Line(pbar, {
+        strokeWidth: 1,
+        easing: 'easeInOutSine',
+        duration: 1400,
+        color: '#FFEA82',
+        trailColor: '#eee',
+        trailWidth: 1,
+        svgStyle: {width: '100%', height: '100%'}
+      });
+
+      $(function(){
+        bar.set(data.green_from);
+        bar.animate((data.green_to), 
+        { 
+          duration: 1000,
+        }) 
+      });
+    </script>  
+
+    <div class="list-group">
+      <li class="list-group-item">
+        <div class="container">
+          <div class="row">
+            <div class="col"><h6>Title</h6></div>
+            <div class="col-8 col-sm-6 col-md-4 col-lg-2 float-right action-title"><h6>Actions</h6></div>
+          </div>
+        </div>
+      </li>
+      {% for todo in todos %}
+        <li class="list-group-item">
+          <div class="container">
+            <div class="row">
+              <div class="col-4 col-sm-6 col-md-8 col-lg-10">
+                <p class="todo-title">
+                {% if todo.completed %}
+                  <del>{{ todo.title }}</del>
+                {% else %}
+                  {{ todo.title }}
+                {% endif %}   
+                </p>           
+              </div>
+
+              <div class="col-8 col-sm-6 col-md-4 col-lg-2 float-right action-col">
+                <div class="btn-group" role="group" aria-label="Basic example">
+                  {% if todo.completed %}
+                    <div></div>
+                  {% else %}
+                    <form action="/complete/{{ todo.id }}/">
+                      <button type="submit" class="btn btn-outline-success todo-action">Complete</button>
+                    </form>
+                  {% endif %}   
+                  <form action="/delete/{{ todo.id }}/">
+                    <button type="submit" class="btn btn-outline-danger todo-action">Delete</button>
+                  </form>  
+                </div>
+              </div>
+            </div>
+          </div>
+        </li>      
+      {% endfor %}
+    </div>
+
+    <!-- Button for Add todo - this has been replaced by AJAX todoname add function, therefore hidden for education purpose only -->
+    <button hidden type="button" class="btn btn-primary my-2 todo-action" data-toggle="modal" data-target="#modal-add">Add</button>
+    <!-- Modal -->
+    <div class="modal fade" id="modal-add" tabindex="-1" role="dialog" aria-labelledby="addTodoModalLabel" aria-hidden="true">
+        <!-- HTML form for modal-add -->
+        <form action="/add/" method="post">
+            {% csrf_token %}
+            <div class="modal-dialog" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="addTodoModalLabel">Add a todo item</h5>
+                        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="input-group mb-3">
+                            <div class="input-group-prepend">
+                                <span class="input-group-text" id="basic-addon1">todo</span>
+                            </div>
+                            <input type="text" name="todoname" class="form-control" placeholder="what to do" aria-label="what to do" aria-describedby="basic-addon1">
+
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn btn-primary add-btn">Add</button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+  </div>
+  
+  <script>
+  function sendAjax(e)
+  {
+    if( e.key != 'Enter')
+    {
+      return;
+    }
+
+    let xhr = new XMLHttpRequest();
+    xhr.onload = function (){
+      console.log("Ajax response received!" + xhr.responseText );
+      let jsonResponse = JSON.parse(xhr.responseText);
+
+      let template = `
+      <li class="list-group-item">
+        <div class="container">
+          <div class="row">
+            <div class="col-4 col-sm-6 col-md-8 col-lg-10">
+              <p class="todo-title">
+
+                ${jsonResponse.created_title}
+
+              </p>           
+            </div>
+
+            <div class="col-8 col-sm-6 col-md-4 col-lg-2 float-right action-col">
+              <div class="btn-group" role="group" aria-label="Basic example">
+
+                <form action="/complete/${jsonResponse.created_id}/">
+                  <button type="submit" class="btn btn-outline-success todo-action">Complete</button>
+                </form>
+                <form action="/delete/${jsonResponse.created_id}/">
+                  <button type="submit" class="btn btn-outline-danger todo-action">Delete</button>
+                </form>  
+
+              </div>
+            </div>
+          </div>
+        </div>
+      </li>      
+      `;
+
+      /**
+      * @param {String} HTML representing a single element
+      * @return {Element}
+      */
+      function htmlToElement(html) {
+          var template = document.createElement('template');
+          html = html.trim(); // Never return a text node of whitespace as the result
+          template.innerHTML = html;
+          return template.content.firstChild;
+      }
+
+      let new_todo_list_item = htmlToElement(template);
+      let header_list_item = document.getElementsByClassName('list-group')[0].firstElementChild;
+      header_list_item.parentNode.insertBefore(new_todo_list_item, header_list_item.nextSibling);
+      bar.animate((jsonResponse.progress_to), 
+        { 
+          duration: 1000,
+        });
+    };
+    xhr.open('POST','/add-ajax/', true );
+    var csrftoken = $("[name=csrfmiddlewaretoken]").val();
+    xhr.setRequestHeader("X-CSRFToken", csrftoken);
+    xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+    todoTitle = encodeURIComponent(document.getElementsByName('todoname-ajax')[0].value);
+    xhr.send("todoname="+todoTitle);
+    document.getElementsByName('todoname-ajax')[0].value = "";
+  };
+
+  document.getElementsByName('todoname-ajax')[0].addEventListener('keydown', sendAjax)
+</script>
+
+{% else %}
+  <!-- THIS SHOULD NEVER BE REACHED BECAUSE OF SERVER SIDE REDIRECT! -->
+  <p>You are not logged in</p>
+  <a href="{% url 'login' %}">login</a>
+{% endif %}
+{% endblock %}
